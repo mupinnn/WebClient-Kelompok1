@@ -4,6 +4,8 @@ RUN apk update && apk add --no-cache build-base gcc autoconf automake zlib-dev l
 
 WORKDIR /opt/
 COPY package.json package-lock.json ./
+COPY cms/package.json cms/
+COPY web/package.json web/
 RUN npm install -g node-gyp
 RUN npm config set fetch-retry-maxtimeout 600000 -g && npm ci
 ENV PATH=/opt/node_modules/.bin:$PATH
@@ -15,6 +17,7 @@ COPY . .
 # ARG STRAPI_ADMIN_BACKEND_URL
 # ENV STRAPI_ADMIN_BACKEND_URL=${STRAPI_ADMIN_BACKEND_URL}
 ENV NODE_ENV=production
+WORKDIR /opt/app/cms
 RUN npm run build
 
 # Production stage
@@ -24,11 +27,13 @@ ENV NODE_ENV=production
 
 WORKDIR /opt/
 COPY --from=build /opt/package.json /opt/package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force  # --omit=dev replaces the deprecated --only=production
+COPY --from=build /opt/app/cms/package.json cms/
+COPY --from=build /opt/app/web/package.json web/
+RUN npm ci --omit=dev && npm cache clean --force
 ENV PATH=/opt/node_modules/.bin:$PATH
 
-WORKDIR /opt/app
-COPY --from=build /opt/app ./
+WORKDIR /opt/app/cms
+COPY --from=build /opt/app/cms ./
 
 RUN chown -R node:node /opt/app
 USER node
